@@ -24,6 +24,30 @@ const useCacheLimits = create<{ coverMb: number; clipsMb: number; set: (v: Parti
 
 const clampMb = (v: number, min: number) => (Number.isFinite(v) ? Math.min(100_000, Math.max(min, Math.round(v))) : min);
 
+/** Typing only edits the field; the value is saved on blur or Enter (a half-typed "6" must not delete clips). */
+function MbInput({ value, min, onCommit, label }: { value: number; min: number; onCommit: (v: number) => void; label: string }) {
+  const [draft, setDraft] = useState(String(value));
+  const commit = () => {
+    const next = draft.trim() === '' ? value : clampMb(Number(draft), min);
+    setDraft(String(next));
+    if (next !== value) onCommit(next);
+  };
+  return (
+    <input
+      className="input"
+      type="number"
+      min={min}
+      step={50}
+      value={draft}
+      onChange={e => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+      style={{ width: 96, padding: '6px 10px', fontSize: 13 }}
+      aria-label={label}
+    />
+  );
+}
+
 export function ForkCacheLimitsSection() {
   const { coverMb, clipsMb, set } = useCacheLimits();
   const first = useRef(true);
@@ -44,17 +68,7 @@ export function ForkCacheLimitsSection() {
   }, [coverMb, clipsMb]);
 
   const input = (value: number, min: number, onChange: (v: number) => void, label: string) => (
-    <input
-      className="input"
-      type="number"
-      min={min}
-      step={50}
-      value={value}
-      onChange={e => onChange(clampMb(Number(e.target.value), 0))}
-      onBlur={() => { if (value < min) onChange(min); }}
-      style={{ width: 96, padding: '6px 10px', fontSize: 13 }}
-      aria-label={label}
-    />
+    <MbInput key={value} value={value} min={min} onCommit={onChange} label={label} />
   );
 
   return (
@@ -73,9 +87,14 @@ export function ForkCacheLimitsSection() {
                 type="button"
                 className="btn btn-ghost"
                 style={{ fontSize: 13, alignSelf: 'flex-start' }}
+                disabled={!isTauri()}
                 onClick={() => {
-                  if (!confirmClear) { setConfirmClear(true); return; }
-                  void commands.forkClearWebviewCache();
+                  if (!confirmClear) {
+                    setConfirmClear(true);
+                    window.setTimeout(() => setConfirmClear(false), 4000); // the second click must follow soon
+                    return;
+                  }
+                  void commands.forkClearWebviewCache().catch(() => {});
                 }}
               >
                 <Trash2 size={14} /> {confirmClear ? 'Click again to restart and clear' : 'Clear browser cache'}

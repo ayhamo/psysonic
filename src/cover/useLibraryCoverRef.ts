@@ -502,8 +502,10 @@ export function usePlaybackTrackCoverRef(
     const tid = trackId?.trim();
     if (!isNavidrome || !tid) return undefined;
     const own = coverArt?.trim();
+    // The full id (`mf-<songId>_<changed>`) is also the cache slot, like in the lists, so a
+    // re-embedded cover gets a new slot instead of the old picture staying in the player.
     const fetch = own && own.startsWith('mf-') ? own : `mf-${tid}`;
-    return coverEntryToRef({ cacheKind: 'album', cacheEntityId: `mf-${tid}`, fetchCoverArtId: fetch }, scope);
+    return coverEntryToRef({ cacheKind: 'album', cacheEntityId: fetch, fetchCoverArtId: fetch }, scope);
     // `scope` is keyed via the stable `scopeKey` string.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isNavidrome, trackId, coverArt, scopeKey]);

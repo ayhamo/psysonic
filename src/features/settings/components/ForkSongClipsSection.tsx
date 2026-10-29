@@ -11,15 +11,17 @@ export function ForkSongClipsSection() {
   const backdrops = useSongClipsStore(s => s.backdrops);
   const setCovers = useSongClipsStore(s => s.setCovers);
   const setBackdrops = useSongClipsStore(s => s.setBackdrops);
+  const pauseUnfocused = useSongClipsStore(s => s.pauseUnfocused);
+  const setPauseUnfocused = useSongClipsStore(s => s.setPauseUnfocused);
   const [size, setSize] = useState(0);
   const refreshSize = useCallback(() => { void backgroundClipsSize().then(setSize); }, []);
   useEffect(refreshSize, [refreshSize]);
 
   return (
     <SettingsSubSection
-      title="Animated covers"
+      title="Animated covers and video backdrops"
       icon={<Film size={16} />}
-      searchText="animated covers video canvas clips motion artwork background backdrop"
+      searchText="animated covers video backdrops canvas clips motion artwork background pause focus"
     >
       <div className="settings-card">
         <SettingsGroup>
@@ -35,6 +37,12 @@ export function ForkSongClipsSection() {
             desc="Songs with a background clip on the server play it behind the fullscreen player. Each clip is downloaded once and kept on this device, up to the limit in Storage → Cache size limits."
             checked={backdrops}
             onChange={setBackdrops}
+          />
+          <SettingsToggle
+            label="Pause video when Psysonic is not focused"
+            desc="The backdrop video stops while you are in another window, like the visualizer, and goes on when you come back. Saves GPU and battery."
+            checked={pauseUnfocused}
+            onChange={setPauseUnfocused}
           />
           <button
             type="button"

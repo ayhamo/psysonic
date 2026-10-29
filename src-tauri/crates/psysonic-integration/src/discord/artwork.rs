@@ -153,7 +153,8 @@ struct ItunesSongResult {
 /// Fork patch: first credited artist ("A, B" / "A & B" / "A feat. B" -> "A").
 fn first_artist(artist: &str) -> String {
     let lower = artist.to_lowercase();
-    let mut end = artist.len();
+    // byte length of `lower`: lowercasing can change it ("İ" is 2 bytes, "i̇" 3)
+    let mut end = lower.len();
     for sep in [",", " & ", " feat", " ft.", " x ", " and "] {
         if let Some(i) = lower.find(sep) {
             end = end.min(i);
@@ -276,5 +277,17 @@ pub(super) fn cache_and_return(
                 fetched_at: Instant::now(),
             },
         );
+    }
+}
+
+#[cfg(test)]
+mod fork_tests {
+    use super::first_artist;
+
+    #[test]
+    fn first_artist_handles_names_that_change_length_when_lowercased() {
+        assert_eq!(first_artist("İlyas Yalçıntaş"), "i̇lyas yalçıntaş");
+        assert_eq!(first_artist("İlyas & Ali"), "i̇lyas");
+        assert_eq!(first_artist("Otilia, Sak Noel"), "otilia");
     }
 }

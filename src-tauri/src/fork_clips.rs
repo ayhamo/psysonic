@@ -54,7 +54,9 @@ fn is_fresh_miss(marker: &Path) -> bool {
         .is_some_and(|age| age < MISS_TTL)
 }
 
-/// Remove the least recently played clips until the folder fits the limit.
+/// Remove the least recently played clips until the folder fits the limit. The
+/// most recent one (the clip just saved or now showing) is always kept, even
+/// when it alone is over the limit.
 fn evict(dir: &Path) {
     let limit = crate::fork_startup::clips_limit_bytes();
     let Ok(read) = std::fs::read_dir(dir) else { return };
@@ -68,6 +70,7 @@ fn evict(dir: &Path) {
         .collect();
     let mut total: u64 = clips.iter().map(|c| c.1).sum();
     clips.sort();
+    clips.pop();
     for (_, len, path) in clips {
         if total <= limit {
             break;
@@ -150,6 +153,7 @@ pub(crate) async fn fork_song_background_clip(
         url.as_str(),
         nd_bulk_http_client()
             .get(url.as_str())
+            .timeout(Duration::from_secs(60))
             .header("X-ND-Authorization", format!("Bearer {token}")),
     )
     .send()
@@ -160,20 +164,30 @@ pub(crate) async fn fork_song_background_clip(
     match resp.status().as_u16() {
         200 => {
             let bytes = resp.bytes().await.map_err(|e| e.to_string())?;
-            let part = dir.join(format!("{key}.part"));
-            std::fs::write(&part, &bytes).map_err(|e| e.to_string())?;
-            std::fs::rename(&part, &clip).map_err(|e| e.to_string())?;
+            // own name per download, so two at once never share a half-written file
+            let nanos = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).map_or(0, |d| d.as_nanos());
+            let part = dir.join(format!("{key}.{}-{nanos}.part", std::process::id()));
+            if let Err(e) = std::fs::write(&part, &bytes) {
+                let _ = std::fs::remove_file(&part);
+                return Err(e.to_string());
+            }
+            if let Err(e) = std::fs::rename(&part, &clip) {
+                let _ = std::fs::remove_file(&part);
+                return Err(e.to_string());
+            }
             let _ = std::fs::remove_file(&miss);
             evict(&dir);
             Ok(Some(clip.to_string_lossy().into_owned()))
         }
-        404 => {
+        // Only the clip server's own "no such clip" is remembered: its location adds
+        // Cache-Control to every answer, a 404 from a missing route has none.
+        404 if resp.headers().get("cache-control").is_some_and(|v| v.as_bytes().windows(7).any(|w| w == b"max-age")) => {
             let _ = std::fs::write(&miss, b"");
             Ok(None)
         }
-        401 => Err("HTTP 401".to_string()),
-        // the route is not there (yet) or the server had a moment: try again next time
-        _ => Ok(None),
+        // 401: the frontend logs in again once; anything else (route missing, server
+        // busy) is an error too, so the frontend does not remember it and asks next time
+        code => Err(format!("HTTP {code}")),
     }
 }
 

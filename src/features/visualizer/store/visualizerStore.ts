@@ -89,7 +89,7 @@ export const useVisualizerStore = create<VisualizerState>()(
       mode: 'bars',
       sensitivity: 1,
       responsiveness: DEFAULT_RESPONSIVENESS,
-      fps: 60,
+      fps: 30, // fork patch: 30 fps by default (upstream 60), less CPU/GPU
       showPeaks: true,
       colorSource: 'album',
       pauseWhenUnfocused: true,

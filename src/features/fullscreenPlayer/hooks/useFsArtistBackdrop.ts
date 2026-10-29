@@ -29,7 +29,9 @@ export function useFsArtistBackdrop(currentTrack: Track | null): string {
   // Fork patch: Navidrome's star placeholder (artist without a picture) is
   // replaced by the song's own cover; nothing is shown while it is checked.
   const placeholder = useIsArtistPlaceholder(artistImgUrl);
-  const songCover = usePlaybackCoverArt(usePlaybackTrackCoverRef(currentTrack ?? undefined), 2000, { fullRes: true });
+  // Only fetched once the placeholder is confirmed: a real artist image never needs it.
+  const songCoverRef = usePlaybackTrackCoverRef(currentTrack ?? undefined);
+  const songCover = usePlaybackCoverArt(placeholder === true ? songCoverRef : undefined, 2000, { fullRes: true });
   const songCoverUrl = useCachedUrl(songCover.src, songCover.cacheKey, true);
   const navidrome = placeholder === false ? artistImgUrl : placeholder ? songCoverUrl : '';
 

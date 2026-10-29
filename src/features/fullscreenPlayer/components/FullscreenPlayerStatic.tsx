@@ -28,6 +28,7 @@ import { ExplicitTitle } from '@/ui/ExplicitBadge';
 import ExplicitCoverVeil from '@/ui/ExplicitCoverVeil';
 import { isExplicit } from '@/lib/media/explicitStatus';
 import { useShowStarRatings } from '@/store/starRatings';
+import { useThemeStore } from '@/store/themeStore';
 import { useSongBackgroundClip } from '@/cover/songClips';
 import { ClipBackdrop } from '@/cover/ClipVideo';
 
@@ -118,7 +119,11 @@ export default function FullscreenPlayerStatic({ onClose }: Props) {
   // background stays empty (no album/artist flash), then falls back per the list;
   // with the scraper off the fanart source reports a non-pending miss, so the
   // chain steps straight to the Navidrome artist image.
-  const bgUrl = useFsArtistBackdrop(currentTrack);
+  const artistBgUrl = useFsArtistBackdrop(currentTrack);
+  // Fork patch: the song's own cover fills in while fanart is still looking up
+  // (MusicBrainz is slow) and when the artist has no backdrop at all.
+  const backdropOn = useThemeStore(s => s.backdrops.fullscreenPlayer.enabled);
+  const bgUrl = artistBgUrl || (backdropOn ? coverUrl : '');
   // Fork patch: the song's background clip, when the server has one.
   const backgroundClip = useSongBackgroundClip(currentTrack);
 
@@ -166,7 +171,7 @@ export default function FullscreenPlayerStatic({ onClose }: Props) {
     >
       {/* Sharp background — no blur; eases in once its pixels are loaded. */}
       <FsBackground key={bgUrl} url={bgUrl} />
-      <ClipBackdrop src={backgroundClip} />
+      <ClipBackdrop src={backgroundClip} fill={coverUrl} />
       <div className="fsp-scrim" aria-hidden="true" />
       <div className="fsp-vignette" aria-hidden="true" />
 

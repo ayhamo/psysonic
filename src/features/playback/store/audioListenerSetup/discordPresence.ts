@@ -120,7 +120,9 @@ export function setupDiscordPresence(): () => void {
     const publishSources =
       discordCoverSource === 'none' ? []
       : discordCoverSource === 'apple'
-        ? coverSources.filter(s => s.source !== 'server')
+        // Fork patch: Apple always takes part here (it is off in the in-app list
+        // by default, which left this option with nothing to search).
+        ? coverSources.filter(s => s.source !== 'server').map(s => s.source === 'apple' ? { ...s, enabled: true } : s)
         : coverSources;
     const chainCtx = {
       albumId: !playbackServerDiffersFromActive() ? currentTrack.albumId : undefined,

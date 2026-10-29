@@ -20,15 +20,20 @@ import type { Track } from '@/lib/media/trackTypes';
 export const useSongClipsStore = create<{
   covers: boolean;
   backdrops: boolean;
+  /** Pause the clip while the window is not focused or hidden (saves GPU, like the visualizer). */
+  pauseUnfocused: boolean;
   setCovers: (v: boolean) => void;
   setBackdrops: (v: boolean) => void;
+  setPauseUnfocused: (v: boolean) => void;
 }>()(
   persist(
     set => ({
       covers: true,
       backdrops: true,
+      pauseUnfocused: true,
       setCovers: (covers: boolean) => set({ covers }),
       setBackdrops: (backdrops: boolean) => set({ backdrops }),
+      setPauseUnfocused: (pauseUnfocused: boolean) => set({ pauseUnfocused }),
     }),
     { name: 'psysonic_fork_animated_covers' },
   ),
@@ -58,7 +63,10 @@ function serverToken(serverId: string, baseUrl: string, fresh = false): Promise<
   return hit;
 }
 
-/** The clip as a file url ('' when the song has none). One server round trip per song at most. */
+/**
+ * The clip as a file url ('' when the song has none). Rejects on a failure
+ * (offline, server error, login) so the caller does not remember it.
+ */
 async function loadClip(serverId: string, songId: string): Promise<string> {
   const server = getServerById(serverId);
   if (!server || !isTauri()) return '';
@@ -67,9 +75,16 @@ async function loadClip(serverId: string, songId: string): Promise<string> {
     const token = await serverToken(serverId, baseUrl, fresh);
     const res = await commands.forkSongBackgroundClip(baseUrl, token, songId);
     if (res.status === 'ok') return res.data ? convertFileSrc(res.data.replace(/\\/g, '/')) : '';
-    if (!res.error.includes('401')) return ''; // only an expired login is worth one retry
+    if (!res.error.includes('401')) throw new Error(res.error); // only an expired login is worth one retry
   }
-  return '';
+  throw new Error('login refused');
+}
+
+/** Forget a song's clip (failed lookup, or the file was removed), so the next showing asks Rust again. */
+export function forgetBackgroundClip(url: string): void {
+  for (const [key, hit] of clips) {
+    void hit.then(u => { if (u === url && clips.get(key) === hit) clips.delete(key); });
+  }
 }
 
 /** Background clip url for the playing song ('' while loading, when off, or when there is none). */
@@ -85,7 +100,11 @@ export function useSongBackgroundClip(track: Pick<Track, 'id' | 'serverId'> | nu
     let alive = true;
     let hit = clips.get(key);
     if (!hit) {
-      hit = loadClip(serverId, songId).catch(() => '');
+      const loading = loadClip(serverId, songId).catch(() => {
+        if (clips.get(key) === loading) clips.delete(key); // a failure is tried again next time
+        return '';
+      });
+      hit = loading;
       if (clips.size > 500) clips.clear();
       clips.set(key, hit);
     }

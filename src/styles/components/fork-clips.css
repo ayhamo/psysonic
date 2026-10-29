@@ -23,8 +23,20 @@
 }
 
 .fork-clip-backdrop-fill {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
   filter: blur(40px) brightness(0.6);
   transform: scale(1.15);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+/* The fill appears together with the clip, so a missing clip leaves the normal background. */
+.fork-clip-backdrop:has(.fork-clip.is-playing) .fork-clip-backdrop-fill {
+  opacity: 1;
 }
 
 .fork-clip-backdrop-main {

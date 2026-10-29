@@ -109,21 +109,26 @@ fn clear_webview_cache(app: &tauri::AppHandle) -> Result<(), String> {
     let exe = std::env::current_exe().map_err(|e| e.to_string())?;
     let pid = std::process::id();
     // CRLF line ends for `goto`; `ping` as the pause, since `timeout` fails without a console.
+    // The paths come in as environment variables: cmd reads the file in the OEM code
+    // page, so a name like "Jürgen" (or a `%`) written into the script would break.
     let mut lines = vec![
         "@echo off".to_string(),
         ":wait".to_string(),
         format!("tasklist /FI \"PID eq {pid}\" | find \"{pid}\" >nul && (ping -n 2 127.0.0.1 >nul & goto wait)"),
         "ping -n 4 127.0.0.1 >nul".to_string(),
     ];
-    for d in WEBVIEW_CACHES {
-        lines.push(format!("rmdir /s /q \"{}\"", profile.join(d).display()));
+    let mut command = std::process::Command::new("cmd");
+    for (i, d) in WEBVIEW_CACHES.iter().enumerate() {
+        command.env(format!("PSY_CACHE{i}"), profile.join(d));
+        lines.push(format!("rmdir /s /q \"%PSY_CACHE{i}%\""));
     }
-    lines.push(format!("start \"\" \"{}\"", exe.display()));
+    command.env("PSY_EXE", &exe);
+    lines.push("start \"\" \"%PSY_EXE%\"".to_string());
     lines.push("(goto) 2>nul & del \"%~f0\"".to_string());
     let script = lines.join("\r\n") + "\r\n";
     let file = std::env::temp_dir().join(format!("psysonic-clear-cache-{pid}.cmd"));
     std::fs::write(&file, script).map_err(|e| e.to_string())?;
-    std::process::Command::new("cmd")
+    command
         .arg("/c")
         .arg(&file)
         .creation_flags(CREATE_NO_WINDOW)

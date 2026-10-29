@@ -46,7 +46,7 @@ jobs:
           echo "upstream_sha=$sha" >> "$GITHUB_OUTPUT"
           if gh release view "fork-v$version" -R "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
             if [ "$FORCE" = "true" ]; then
-              gh release delete "fork-v$version" -R "$GITHUB_REPOSITORY" --yes --cleanup-tag
+              # replaced by build-windows just before the build, so a failed merge keeps it
               echo "build=true" >> "$GITHUB_OUTPUT"
             else
               echo "fork-v$version already released, nothing to do"
@@ -91,6 +91,16 @@ jobs:
           workspaces: src-tauri
       - name: install npm dependencies
         run: npm install
+      - name: remove the release being rebuilt (force)
+        if: inputs.force
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="fork-v${{ needs.check.outputs.version }}"
+          if gh release view "$tag" -R "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            gh release delete "$tag" -R "$GITHUB_REPOSITORY" --yes --cleanup-tag
+          fi
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
