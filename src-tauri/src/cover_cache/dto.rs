@@ -100,6 +100,10 @@ pub struct CoverCacheEnsureArgs {
     /// the name→MusicBrainz query (§19).
     #[serde(default)]
     pub album_title: Option<String>,
+    /// Fork patch: the playing song's title, tried as the release when the album
+    /// finds no MusicBrainz match (§19).
+    #[serde(default)]
+    pub track_title: Option<String>,
     /// Optional BYOK personal fanart.tv key from settings — sent in addition to
     /// the project key (§22). Falls back to the `PSYSONIC_FANART_CLIENT_KEY` env.
     #[serde(default)]

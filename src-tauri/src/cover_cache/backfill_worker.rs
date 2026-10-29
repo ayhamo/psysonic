@@ -335,6 +335,7 @@ async fn ensure_one(
         surface_kind: None,
         artist_name: None,
         album_title: None,
+        track_title: None,
         external_artwork_byok: None,
         // Library backfill never runs the external album fallback (§5).
         external_album_sources: None,

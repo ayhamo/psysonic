@@ -74,6 +74,7 @@ mod tests {
             surface_kind: surface_kind.map(String::from),
             artist_name: None,
             album_title: None,
+            track_title: None,
             external_artwork_byok: None,
             external_album_sources: None,
         }

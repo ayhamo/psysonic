@@ -1380,6 +1380,11 @@ export type CoverCacheEnsureArgs = {
 	 */
 	albumTitle?: string | null,
 	/**
+	 *  Fork patch: the playing song's title, tried as the release when the album
+	 *  finds no MusicBrainz match (§19).
+	 */
+	trackTitle?: string | null,
+	/**
 	 *  Optional BYOK personal fanart.tv key from settings — sent in addition to
 	 *  the project key (§22). Falls back to the `PSYSONIC_FANART_CLIENT_KEY` env.
 	 */

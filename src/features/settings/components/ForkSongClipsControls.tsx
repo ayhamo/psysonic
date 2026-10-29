@@ -19,38 +19,47 @@ export function ForkSongClipsControls() {
   const refreshSize = useCallback(() => { void backgroundClipsSize().then(setSize); }, []);
   useEffect(refreshSize, [refreshSize]);
 
+  // One box per switch, like upstream's sections, so they do not run together.
   return (
-    <SettingsGroup>
-      <SettingsToggle
-        label="Animated covers"
-        desc="Songs with a cover clip on the server play it over the cover in Now Playing and the fullscreen player; the normal cover shows first. Each clip is downloaded once and kept on this device. Covers that are an animated image also keep moving."
-        note="Embedded animated images cached while this was on stay animated until the cover cache is cleared (Storage → Cover art cache)."
-        checked={covers}
-        onChange={setCovers}
-      />
-      <SettingsToggle
-        label="Animated video backdrops"
-        desc="Songs with a background clip on the server play it behind the fullscreen player. Each clip is downloaded once and kept on this device, up to the limit in Storage → Cache size limits."
-        checked={backdrops}
-        onChange={setBackdrops}
-      />
-      <SettingsToggle
-        label="Pause video when Psysonic is not focused"
-        desc="The backdrop video stops while you are in another window, like the visualizer, and goes on when you come back. Saves GPU and battery."
-        checked={pauseUnfocused}
-        onChange={setPauseUnfocused}
-      />
-      <button
-        type="button"
-        className="btn btn-ghost"
-        style={{ fontSize: 13, alignSelf: 'flex-start' }}
-        onClick={async () => {
-          await clearBackgroundClips();
-          refreshSize();
-        }}
-      >
-        <Trash2 size={14} /> Clear video backdrops ({(size / 1024 / 1024).toFixed(0)} MB)
-      </button>
-    </SettingsGroup>
+    <>
+      <SettingsGroup>
+        <SettingsToggle
+          label="Animated covers"
+          desc="Songs with a cover clip on the server play it over the cover in Now Playing and the fullscreen player; the normal cover shows first. Each clip is downloaded once and kept on this device. Covers that are an animated image also keep moving."
+          note="Embedded animated images cached while this was on stay animated until the cover cache is cleared (Storage → Cover art cache)."
+          checked={covers}
+          onChange={setCovers}
+        />
+      </SettingsGroup>
+      <SettingsGroup>
+        <SettingsToggle
+          label="Animated video backdrops"
+          desc="Songs with a background clip on the server play it behind the fullscreen player. Each clip is downloaded once and kept on this device, up to the limit in Cache size limits. The film button in the fullscreen player switches this too."
+          checked={backdrops}
+          onChange={setBackdrops}
+        />
+      </SettingsGroup>
+      <SettingsGroup>
+        <SettingsToggle
+          label="Pause video when Psysonic is not focused"
+          desc="Cover and backdrop videos stop while you are in another window, like the visualizer, and go on when you come back. Saves GPU and battery."
+          checked={pauseUnfocused}
+          onChange={setPauseUnfocused}
+        />
+      </SettingsGroup>
+      <SettingsGroup>
+        <button
+          type="button"
+          className="btn btn-ghost"
+          style={{ fontSize: 13, alignSelf: 'flex-start' }}
+          onClick={async () => {
+            await clearBackgroundClips();
+            refreshSize();
+          }}
+        >
+          <Trash2 size={14} /> Clear cover and backdrop videos ({(size / 1024 / 1024).toFixed(0)} MB)
+        </button>
+      </SettingsGroup>
+    </>
   );
 }

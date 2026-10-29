@@ -3,6 +3,7 @@ import { useArtistFanart } from '@/cover/useArtistFanart';
 import { backdropFromConfig } from '@/cover/artistBackdrop';
 import { useArtistCoverRef, usePlaybackTrackCoverRef } from '@/cover/useLibraryCoverRef';
 import { useIsArtistPlaceholder } from '@/cover/useIsArtistPlaceholder';
+import { useLeadArtist } from '@/features/fullscreenPlayer/hooks/forkLeadArtist';
 import { usePlaybackCoverArt } from '@/cover/usePlaybackCoverArt';
 import { useCachedUrl } from '@/ui/CachedImage';
 import type { Track } from '@/lib/media/trackTypes';
@@ -18,10 +19,15 @@ import type { Track } from '@/lib/media/trackTypes';
  */
 export function useFsArtistBackdrop(currentTrack: Track | null): string {
   const cfg = useThemeStore(s => s.backdrops.fullscreenPlayer);
-  const fanart = useArtistFanart(currentTrack?.artistId, {
+  const ownFanart = useArtistFanart(currentTrack?.artistId, {
     artistName: currentTrack?.artist,
     albumTitle: currentTrack?.album,
+    trackTitle: currentTrack?.title, // fork patch: second MusicBrainz try
   });
+  // Fork patch: a combined artist ("A X B") without a backdrop falls back to A's.
+  const lead = useLeadArtist(currentTrack, ownFanart);
+  const leadFanart = useArtistFanart(lead.id || undefined, { artistName: lead.name, albumTitle: currentTrack?.album, trackTitle: currentTrack?.title });
+  const fanart = lead.id ? leadFanart : ownFanart;
   const artistCoverRef =
     useArtistCoverRef(currentTrack?.artistId, undefined, undefined, { libraryResolve: false }) ?? undefined;
   const artistImage = usePlaybackCoverArt(artistCoverRef, 2000, { fullRes: true });

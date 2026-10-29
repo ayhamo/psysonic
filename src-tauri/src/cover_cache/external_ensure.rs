@@ -332,9 +332,25 @@ pub(super) async fn try_external_fanart(
                         // plus a ≥1s spacing so concurrent ensures can't burst MB.
                         let _mb = musicbrainz_sem.clone().acquire_owned().await.ok()?;
                         super::ensure_migration_write_allowed(app).ok()?;
-                        let resolved =
+                        let mut resolved =
                             external::resolve_mbid_via_musicbrainz(client, name, album).await;
                         tokio::time::sleep(Duration::from_millis(1100)).await;
+                        // Fork patch: when the album finds nothing (a playlist folder
+                        // tagged as the album, e.g. "Youtube FLAC"), try the song's
+                        // title: singles are released under the song's name.
+                        let title = args
+                            .track_title
+                            .as_deref()
+                            .map(str::trim)
+                            .filter(|t| !t.is_empty() && !t.eq_ignore_ascii_case(album.trim()));
+                        if let (
+                            Ok(external::MbResolution::None | external::MbResolution::Ambiguous),
+                            Some(title),
+                        ) = (&resolved, title)
+                        {
+                            resolved = external::resolve_mbid_via_musicbrainz(client, name, title).await;
+                            tokio::time::sleep(Duration::from_millis(1100)).await;
+                        }
                         drop(_mb);
                         match resolved {
                             Ok(external::MbResolution::Found(m)) => {

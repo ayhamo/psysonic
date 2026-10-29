@@ -21,7 +21,7 @@ import { COVER_SCOPE_ACTIVE, coverScopeKey, type CoverServerScope } from './type
  * hands back. The cache is shared across callers, so e.g. the artist-detail
  * header and the fullscreen player warm each other's images.
  */
-type ArtistImageCtx = { artistName?: string; albumTitle?: string };
+type ArtistImageCtx = { artistName?: string; albumTitle?: string; trackTitle?: string };
 
 export type ArtistImage = { src: string; pending: boolean };
 
@@ -35,6 +35,7 @@ function useArtistExternalImage(
   const [image, setImage] = useState<ArtistImage>({ src: '', pending: false });
   const artistName = ctx?.artistName;
   const albumTitle = ctx?.albumTitle;
+  const trackTitle = ctx?.trackTitle;
 
   // Reset synchronously when the target artist/surface changes, so a consumer
   // never reads the *previous* artist's resolved image for the one render
@@ -63,7 +64,7 @@ function useArtistExternalImage(
     setImage({ src: '', pending: true });
     let cancelled = false;
     const ref = artistCoverRef(artistId, undefined, serverScope);
-    void coverCacheEnsure(ref, 2000, 'high', { surfaceKind: surface, artistName, albumTitle })
+    void coverCacheEnsure(ref, 2000, 'high', { surfaceKind: surface, artistName, albumTitle, trackTitle })
       .then((res) => {
         if (!cancelled)
           setImage({ src: res.hit && res.path ? coverDiskUrl(res.path) : '', pending: false });
@@ -74,7 +75,7 @@ function useArtistExternalImage(
     return () => {
       cancelled = true;
     };
-  }, [enabled, artistId, surface, artistName, albumTitle, scopeKey, serverScope]);
+  }, [enabled, artistId, surface, artistName, albumTitle, trackTitle, scopeKey, serverScope]);
 
   return image;
 }

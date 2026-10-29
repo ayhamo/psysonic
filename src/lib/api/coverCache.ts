@@ -63,6 +63,8 @@ export type CoverEnsureOpts = {
   /** §19 name→MusicBrainz context: the artist display name + the album in context. */
   artistName?: string;
   albumTitle?: string;
+  /** Fork patch: the song's title, a second MusicBrainz try when the album finds nothing. */
+  trackTitle?: string;
   /** §5 deferral gate: when `true`, an album ensure may run the external
    *  apple/lastfm chain on a server-miss. ONLY the album detail page and the
    *  current-track cover set this; browse surfaces (grid cards, table rows,
@@ -97,6 +99,7 @@ function externalEnsureFields(ref: CoverArtRef, opts?: CoverEnsureOpts) {
     surfaceKind,
     artistName: opts?.artistName,
     albumTitle: opts?.albumTitle,
+    trackTitle: opts?.trackTitle,
     // BYOK personal fanart.tv key (§22), only when the external branch will run.
     externalArtworkByok: externalArtworkEnabled ? theme.externalArtworkByok : undefined,
     externalAlbumSources: albumSources.length ? albumSources.map((s) => s.source) : undefined,

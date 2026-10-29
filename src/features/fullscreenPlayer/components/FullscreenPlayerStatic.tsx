@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   SkipBack, SkipForward, Square, Repeat, Repeat1, Heart,
-  Shuffle, ListMusic, ChevronDown, Star, MicVocal,
+  Shuffle, ListMusic, ChevronDown, Star, MicVocal, Film,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ScrobbleActionButton, usePlayerStore, skipToNextAlbum, skipToPreviousAlbum, albumSkipTooltip } from '@/features/playback';
@@ -30,7 +30,7 @@ import { isExplicit } from '@/lib/media/explicitStatus';
 import { useShowStarRatings } from '@/store/starRatings';
 import { useThemeStore } from '@/store/themeStore';
 import { useArtistFanart } from '@/cover/useArtistFanart';
-import { useSongBackgroundClip, useSongCoverClip } from '@/cover/songClips';
+import { useSongBackgroundClip, useSongClipsStore, useSongCoverClip } from '@/cover/songClips';
 import { ClipBackdrop, ClipVideo } from '@/cover/ClipVideo';
 
 interface Props {
@@ -128,10 +128,12 @@ export default function FullscreenPlayerStatic({ onClose }: Props) {
   // Fork patch: the song's background clip, when the server has one.
   const backgroundClip = useSongBackgroundClip(currentTrack);
   const coverClip = useSongCoverClip(currentTrack);
+  const backdropsOn = useSongClipsStore(s => s.backdrops);
+  const setBackdrops = useSongClipsStore(s => s.setBackdrops);
 
   const nextTrack = useQueueTrackAt(queueIndex + 1);
   // Fork patch: look up the next song's artist backdrop now, so it is ready on skip.
-  useArtistFanart(nextTrack?.artistId, { artistName: nextTrack?.artist, albumTitle: nextTrack?.album });
+  useArtistFanart(nextTrack?.artistId, { artistName: nextTrack?.artist, albumTitle: nextTrack?.album, trackTitle: nextTrack?.title });
 
   const { isIdle, handleMouseMove } = useFsIdleFade(onClose);
   const controlsRef = useRef<HTMLDivElement>(null);
@@ -322,6 +324,16 @@ export default function FullscreenPlayerStatic({ onClose }: Props) {
               data-tooltip={t('player.lyrics')}
             >
               <MicVocal size={20} />
+            </button>
+            {/* Fork patch: the same switch as Settings → Fork settings → Animated video backdrops. */}
+            <button
+              className={`fsp-btn fsp-btn-sm${backdropsOn ? ' active' : ''}`}
+              onClick={() => setBackdrops(!backdropsOn)}
+              aria-label="Video backdrop"
+              aria-pressed={backdropsOn}
+              data-tooltip={backdropsOn ? 'Video backdrop: on' : 'Video backdrop: off'}
+            >
+              <Film size={20} />
             </button>
             {currentTrack && (
               <button
