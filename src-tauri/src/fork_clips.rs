@@ -1,12 +1,13 @@
 //! Fork patch: animated covers.
 //! - `fork_set_animated_covers` switches the animated WebP covers in the cover
 //!   cache on or off (see `cover_cache::fork_animated`).
-//! - `fork_song_background_clip` fetches a song's background clip
-//!   (`<song file name>.background.mp4`, served next to the song at
-//!   `<server>/rest/x-clip/<folder>/<file>` behind Navidrome's login) and keeps
-//!   it on disk, so each clip crosses the network once per device. A missing
-//!   clip is remembered for a week; the folder is capped at the limit set in
-//!   Settings → Storage (`fork_startup::clips_limit_bytes`), oldest played first out.
+//! - `fork_song_background_clip` fetches a song's clip, the fullscreen background
+//!   (`<song file name>.background.mp4`) or the square cover (`<song file name>.cover.mp4`),
+//!   served next to the song at `<server>/rest/x-clip/<folder>/<file>` behind
+//!   Navidrome's login, and keeps it on disk, so each clip crosses the network once
+//!   per device. A missing clip is remembered for a week; both kinds share one
+//!   folder capped at the limit set in Settings → Storage
+//!   (`fork_startup::clips_limit_bytes`), oldest played first out.
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -36,13 +37,18 @@ fn cache_key(server_url: &str, song_id: &str) -> String {
     format!("{h:016x}")
 }
 
-/// `/music/Youtube FLAC/001-Song.flac` -> `["Youtube FLAC", "001-Song.background.mp4"]`.
-fn clip_segments(song_path: &str) -> Option<[String; 2]> {
+/// `background` or `cover` (anything else is treated as `background`).
+fn clip_kind(kind: &str) -> &'static str {
+    if kind == "cover" { "cover" } else { "background" }
+}
+
+/// `/music/Youtube FLAC/001-Song.flac` + `background` -> `["Youtube FLAC", "001-Song.background.mp4"]`.
+fn clip_segments(song_path: &str, kind: &str) -> Option<[String; 2]> {
     let mut parts = song_path.split(['/', '\\']).filter(|p| !p.is_empty()).rev();
     let file = parts.next()?;
     let folder = parts.next()?;
     let stem = file.rsplit_once('.').map_or(file, |(s, _)| s);
-    Some([folder.to_string(), format!("{stem}.background.mp4")])
+    Some([folder.to_string(), format!("{stem}.{kind}.mp4")])
 }
 
 fn is_fresh_miss(marker: &Path) -> bool {
@@ -119,9 +125,15 @@ pub(crate) async fn fork_song_background_clip(
     server_url: String,
     token: String,
     song_id: String,
+    kind: String,
 ) -> Result<Option<String>, String> {
     let dir = clips_dir(&app)?;
-    let key = cache_key(&server_url, &song_id);
+    let kind = clip_kind(&kind);
+    // background clips keep the plain key, so clips saved before covers existed stay valid
+    let key = match kind {
+        "cover" => format!("{}-cover", cache_key(&server_url, &song_id)),
+        _ => cache_key(&server_url, &song_id),
+    };
     let clip = dir.join(format!("{key}.mp4"));
     let miss = dir.join(format!("{key}.miss"));
     if clip.is_file() {
@@ -139,7 +151,7 @@ pub(crate) async fn fork_song_background_clip(
     let reg = http_registry.as_ref();
     let base = server_url.trim_end_matches('/');
     let song = nd_get_song_internal(Some(reg), None, base, &token, &song_id).await?;
-    let Some(segments) = song["path"].as_str().and_then(clip_segments) else {
+    let Some(segments) = song["path"].as_str().and_then(|p| clip_segments(p, kind)) else {
         return Ok(None);
     };
     let mut url = url::Url::parse(base).map_err(|e| e.to_string())?;
@@ -198,14 +210,15 @@ mod tests {
     #[test]
     fn clip_path_is_folder_and_file_with_the_clip_suffix() {
         assert_eq!(
-            clip_segments("/music/Youtube FLAC/001-A ｜ B.flac"),
+            clip_segments("/music/Youtube FLAC/001-A ｜ B.flac", "background"),
             Some(["Youtube FLAC".to_string(), "001-A ｜ B.background.mp4".to_string()])
         );
         assert_eq!(
-            clip_segments("Mix\\002-A.b - C.opus"),
-            Some(["Mix".to_string(), "002-A.b - C.background.mp4".to_string()])
+            clip_segments("Mix\\002-A.b - C.opus", clip_kind("cover")),
+            Some(["Mix".to_string(), "002-A.b - C.cover.mp4".to_string()])
         );
-        assert_eq!(clip_segments("song.flac"), None);
+        assert_eq!(clip_segments("song.flac", "background"), None);
+        assert_eq!(clip_kind("../x"), "background");
     }
 
     #[test]

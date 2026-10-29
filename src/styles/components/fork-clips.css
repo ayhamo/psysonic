@@ -8,7 +8,7 @@
   border-radius: inherit;
   pointer-events: none;
   opacity: 0;
-  transition: opacity 0.4s ease;
+  transition: opacity 1.2s ease-in-out;
 }
 
 .fork-clip.is-playing {
@@ -31,7 +31,7 @@
   filter: blur(40px) brightness(0.6);
   transform: scale(1.15);
   opacity: 0;
-  transition: opacity 0.4s ease;
+  transition: opacity 1.2s ease-in-out;
 }
 
 /* The fill appears together with the clip, so a missing clip leaves the normal background. */
@@ -41,4 +41,26 @@
 
 .fork-clip-backdrop-main {
   object-fit: contain;
+}
+
+/* Fullscreen background (FullscreenPlayerStatic.tsx): a slower, softer fade-in. */
+.fsp .fsp-bg {
+  transition: opacity 1.2s ease-in-out;
+}
+
+/* The song's cover as the background is shown at its own size (never enlarged,
+   which made it blurry), on the normal dark backdrop. */
+.fsp .fsp-bg.fork-fsp-bg-cover {
+  object-fit: scale-down;
+  object-position: center 30%;
+  background: radial-gradient(circle at 50% 35%, #1a1a2e, #06060e 70%);
+}
+
+/* Cover clips (`<song>.cover.mp4`) over the fullscreen and Now Playing covers. */
+.np-dash-hero-cover {
+  position: relative;
+}
+
+.fork-cover-clip {
+  z-index: 2;
 }

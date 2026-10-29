@@ -6,7 +6,7 @@ import { invoke as __TAURI_INVOKE } from "@tauri-apps/api/core";
 export const commands = {
 	greet: (name: string) => __TAURI_INVOKE<string>("greet", { name }),
 	forkSetAnimatedCovers: (enabled: boolean) => typedError<null, string>(__TAURI_INVOKE("fork_set_animated_covers", { enabled })),
-	forkSongBackgroundClip: (serverUrl: string, token: string, songId: string) => typedError<string | null, string>(__TAURI_INVOKE("fork_song_background_clip", { serverUrl, token, songId })),
+	forkSongBackgroundClip: (serverUrl: string, token: string, songId: string, kind: string) => typedError<string | null, string>(__TAURI_INVOKE("fork_song_background_clip", { serverUrl, token, songId, kind })),
 	/**  Bytes of background clips kept on disk (Settings shows it next to Clear). */
 	forkBackgroundClipsSize: () => typedError<number, string>(__TAURI_INVOKE("fork_background_clips_size")),
 	/**  Delete every kept clip and every "no clip" note. */

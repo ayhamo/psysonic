@@ -14,6 +14,8 @@ import { usePlayerStore } from '@/features/playback';
 import ExplicitBadge from '@/ui/ExplicitBadge';
 import ExplicitCoverVeil from '@/ui/ExplicitCoverVeil';
 import { isExplicit } from '@/lib/media/explicitStatus';
+import { useSongCoverClip } from '@/cover/songClips';
+import { ClipVideo } from '@/cover/ClipVideo';
 
 interface HeroProps {
   track: { title: string; artist: string; album: string; year?: number;
@@ -59,6 +61,8 @@ const Hero = memo(function Hero({ track, artistRefs, genre, playCount, userRatin
   const networkIcon = useEnrichmentPrimaryIcon();
   const rating = userRatingOverride ?? track.userRating;
   const resolvedStreamFormat = usePlayerStore(s => s.resolvedStreamFormat);
+  // Fork patch: the song's cover clip (`<song>.cover.mp4`) plays over the cover.
+  const coverClip = useSongCoverClip(usePlayerStore(s => s.currentTrack));
   const fmt = effectiveAudioFormat(track, resolvedStreamFormat);
   const transcodedTooltip = fmt.transcoded
     ? t('queue.streamTranscoded', {
@@ -90,6 +94,7 @@ const Hero = memo(function Hero({ track, artistRefs, genre, playCount, userRatin
         ) : (
           <div className="np-cover np-cover-fallback"><Music size={64} /></div>
         )}
+        <ClipVideo src={coverClip} className="fork-cover-clip" />
         <ExplicitCoverVeil explicit={isExplicit(track)} />
       </div>
       <div className="np-dash-hero-body">

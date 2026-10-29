@@ -29,8 +29,9 @@ import ExplicitCoverVeil from '@/ui/ExplicitCoverVeil';
 import { isExplicit } from '@/lib/media/explicitStatus';
 import { useShowStarRatings } from '@/store/starRatings';
 import { useThemeStore } from '@/store/themeStore';
-import { useSongBackgroundClip } from '@/cover/songClips';
-import { ClipBackdrop } from '@/cover/ClipVideo';
+import { useArtistFanart } from '@/cover/useArtistFanart';
+import { useSongBackgroundClip, useSongCoverClip } from '@/cover/songClips';
+import { ClipBackdrop, ClipVideo } from '@/cover/ClipVideo';
 
 interface Props {
   onClose: () => void;
@@ -46,12 +47,12 @@ interface Props {
  * `load` event can fire before React attaches the handler (e.g. skipping back
  * to a recently shown artist) — without it the background would stay black.
  */
-function FsBackground({ url }: { url: string }) {
+function FsBackground({ url, asCover = false }: { url: string; asCover?: boolean }) {
   const [loaded, setLoaded] = useState(false);
   if (!url) return <div className="fsp-bg fsp-bg--empty" aria-hidden="true" />;
   return (
     <img
-      className={`fsp-bg${loaded ? ' is-loaded' : ''}`}
+      className={`fsp-bg${loaded ? ' is-loaded' : ''}${asCover ? ' fork-fsp-bg-cover' : ''}`}
       src={url}
       onLoad={() => setLoaded(true)}
       ref={(el) => {
@@ -126,8 +127,11 @@ export default function FullscreenPlayerStatic({ onClose }: Props) {
   const bgUrl = artistBgUrl || (backdropOn ? coverUrl : '');
   // Fork patch: the song's background clip, when the server has one.
   const backgroundClip = useSongBackgroundClip(currentTrack);
+  const coverClip = useSongCoverClip(currentTrack);
 
   const nextTrack = useQueueTrackAt(queueIndex + 1);
+  // Fork patch: look up the next song's artist backdrop now, so it is ready on skip.
+  useArtistFanart(nextTrack?.artistId, { artistName: nextTrack?.artist, albumTitle: nextTrack?.album });
 
   const { isIdle, handleMouseMove } = useFsIdleFade(onClose);
   const controlsRef = useRef<HTMLDivElement>(null);
@@ -170,7 +174,7 @@ export default function FullscreenPlayerStatic({ onClose }: Props) {
       onMouseMove={handleMouseMove}
     >
       {/* Sharp background — no blur; eases in once its pixels are loaded. */}
-      <FsBackground key={bgUrl} url={bgUrl} />
+      <FsBackground key={bgUrl} url={bgUrl} asCover={bgUrl === coverUrl} />
       <ClipBackdrop src={backgroundClip} fill={coverUrl} />
       <div className="fsp-scrim" aria-hidden="true" />
       <div className="fsp-vignette" aria-hidden="true" />
@@ -198,6 +202,7 @@ export default function FullscreenPlayerStatic({ onClose }: Props) {
             {thumbUrl
               ? <img className="fsp-cover-img" src={thumbUrl} alt="" draggable={false} />
               : <div className="fsp-cover-img fsp-cover-img--empty" />}
+            <ClipVideo src={coverClip} className="fork-cover-clip" />
             <ExplicitCoverVeil explicit={isExplicit(currentTrack)} />
           </div>
           <div className="fsp-info-text">

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { HardDrive, Trash2 } from 'lucide-react';
 import { formatBytes } from '@/lib/format/formatBytes';
 import { create } from 'zustand';
@@ -48,9 +48,16 @@ function MbInput({ value, min, onCommit, label }: { value: number; min: number; 
   );
 }
 
-export function ForkCacheLimitsSection() {
-  const { coverMb, clipsMb, set } = useCacheLimits();
-  const first = useRef(true);
+/** Rust applies the limits (clips at once, covers on the next start) and keeps them in fork-settings.json. */
+function saveLimits(v: Partial<{ coverMb: number; clipsMb: number }>) {
+  useCacheLimits.getState().set(v);
+  const { coverMb, clipsMb } = useCacheLimits.getState();
+  if (isTauri()) void commands.forkSetCacheLimits(coverMb, Math.max(50, clipsMb)).catch(() => {});
+}
+
+/** The limit fields and the browser cache; shown here and in Integrations → Fork settings. */
+export function ForkCacheLimitsControls() {
+  const { coverMb, clipsMb } = useCacheLimits();
   const [browserBytes, setBrowserBytes] = useState<number | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
 
@@ -59,52 +66,50 @@ export function ForkCacheLimitsSection() {
     void commands.forkWebviewCacheSize().then(r => setBrowserBytes(r.status === 'ok' ? r.data : 0));
   }, []);
 
-  useEffect(() => {
-    if (first.current) { first.current = false; return; } // only save real changes
-    const handle = window.setTimeout(() => {
-      if (isTauri()) void commands.forkSetCacheLimits(coverMb, Math.max(50, clipsMb)).catch(() => {});
-    }, 600);
-    return () => window.clearTimeout(handle);
-  }, [coverMb, clipsMb]);
-
   const input = (value: number, min: number, onChange: (v: number) => void, label: string) => (
     <MbInput key={value} value={value} min={min} onCommit={onChange} label={label} />
   );
 
   return (
+    <SettingsGroup desc="When a cache is full, what was used longest ago is removed first; offline songs are never removed.">
+      <SettingsSubCard>
+        <SettingsField row label="Cover art cache (MB, 0 = no limit)" desc="Checked when Psysonic starts.">
+          {input(coverMb, 0, v => saveLimits({ coverMb: v }), 'Cover art cache limit in MB')}
+        </SettingsField>
+        <SettingsField
+          label={`Browser cache: ${browserBytes !== null ? formatBytes(browserBytes) : '…'}`}
+          desc="The app window's own web cache. Clearing it keeps your settings; Psysonic restarts, and covers it had cached load from the server again."
+        >
+          <button
+            type="button"
+            className="btn btn-ghost"
+            style={{ fontSize: 13, alignSelf: 'flex-start' }}
+            disabled={!isTauri()}
+            onClick={() => {
+              if (!confirmClear) {
+                setConfirmClear(true);
+                window.setTimeout(() => setConfirmClear(false), 4000); // the second click must follow soon
+                return;
+              }
+              void commands.forkClearWebviewCache().catch(() => {});
+            }}
+          >
+            <Trash2 size={14} /> {confirmClear ? 'Click again to restart and clear' : 'Clear browser cache'}
+          </button>
+        </SettingsField>
+        <SettingsField row label="Video backdrops (MB, at least 50)" desc="Applied right away. All 247 clips take about 490 MB.">
+          {input(clipsMb, 50, v => saveLimits({ clipsMb: v }), 'Video backdrops limit in MB')}
+        </SettingsField>
+      </SettingsSubCard>
+    </SettingsGroup>
+  );
+}
+
+export function ForkCacheLimitsSection() {
+  return (
     <SettingsSubSection title="Cache size limits" icon={<HardDrive size={16} />} searchText="cache size limit cover video backdrop clips disk space">
       <div className="settings-card">
-        <SettingsGroup desc="The hot cache limit is set above. When a cache is full, what was used longest ago is removed first; offline songs are never removed.">
-          <SettingsSubCard>
-            <SettingsField row label="Cover art cache (MB, 0 = no limit)" desc="Checked when Psysonic starts.">
-              {input(coverMb, 0, v => set({ coverMb: v }), 'Cover art cache limit in MB')}
-            </SettingsField>
-            <SettingsField
-              label={`Browser cache: ${browserBytes !== null ? formatBytes(browserBytes) : '…'}`}
-              desc="The app window's own web cache. Clearing it keeps your settings; Psysonic restarts, and covers it had cached load from the server again."
-            >
-              <button
-                type="button"
-                className="btn btn-ghost"
-                style={{ fontSize: 13, alignSelf: 'flex-start' }}
-                disabled={!isTauri()}
-                onClick={() => {
-                  if (!confirmClear) {
-                    setConfirmClear(true);
-                    window.setTimeout(() => setConfirmClear(false), 4000); // the second click must follow soon
-                    return;
-                  }
-                  void commands.forkClearWebviewCache().catch(() => {});
-                }}
-              >
-                <Trash2 size={14} /> {confirmClear ? 'Click again to restart and clear' : 'Clear browser cache'}
-              </button>
-            </SettingsField>
-            <SettingsField row label="Video backdrops (MB, at least 50)" desc="Applied right away. All 247 clips take about 490 MB.">
-              {input(clipsMb, 50, v => set({ clipsMb: v }), 'Video backdrops limit in MB')}
-            </SettingsField>
-          </SettingsSubCard>
-        </SettingsGroup>
+        <ForkCacheLimitsControls />
       </div>
     </SettingsSubSection>
   );

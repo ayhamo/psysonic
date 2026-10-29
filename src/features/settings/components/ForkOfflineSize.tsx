@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { isTauri } from '@tauri-apps/api/core';
 import { getMediaTierSize } from '@/lib/api/syncfs';
 import { formatBytes } from '@/lib/format/formatBytes';
 
@@ -6,8 +7,10 @@ import { formatBytes } from '@/lib/format/formatBytes';
 export function ForkOfflineSize({ mediaDir }: { mediaDir: string | null }) {
   const [bytes, setBytes] = useState<number | null>(null);
   useEffect(() => {
+    if (!isTauri()) return;
     let alive = true;
-    getMediaTierSize({ tier: 'library', mediaDir })
+    Promise.resolve()
+      .then(() => getMediaTierSize({ tier: 'library', mediaDir }))
       .then(b => { if (alive) setBytes(b); })
       .catch(() => { if (alive) setBytes(0); });
     return () => { alive = false; };

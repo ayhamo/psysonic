@@ -231,6 +231,11 @@ async fn persist_artist_lookup(
 /// `artist_artwork_lookup` (§12). The §11 quality gate runs first for the
 /// `fanart` surface only.
 #[allow(clippy::too_many_arguments)]
+/// Fork patch: an artist without fanart (or without a MusicBrainz match) is asked
+/// again after a week, not every 30 min / 24 h: each new try costs several
+/// seconds of MusicBrainz + fanart.tv lookups while the fullscreen player waits.
+const FORK_FANART_MISS_TTL: Duration = Duration::from_secs(7 * 24 * 60 * 60);
+
 pub(super) async fn try_external_fanart(
     app: &AppHandle,
     args: &CoverCacheEnsureArgs,
@@ -280,16 +285,16 @@ pub(super) async fn try_external_fanart(
         // 30 min (also held by the `.miss-fanart` marker).
         let within = |window: Duration| now - row.updated_at < window.as_millis() as i64;
         match row.status.as_str() {
-            "no_mbid" | "mbid_ambiguous" if within(Duration::from_secs(24 * 60 * 60)) => {
+            "no_mbid" | "mbid_ambiguous" if within(FORK_FANART_MISS_TTL) => {
                 return None;
             }
-            "miss" if within(Duration::from_secs(30 * 60)) => return None,
+            "miss" if within(FORK_FANART_MISS_TTL) => return None,
             _ => {}
         }
     }
 
     let miss_marker = dir.join(format!(".miss-{surface}"));
-    if marker_recent(&miss_marker, Duration::from_secs(30 * 60)) {
+    if marker_recent(&miss_marker, FORK_FANART_MISS_TTL) {
         return None;
     }
 

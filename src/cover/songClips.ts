@@ -10,9 +10,10 @@ import { useAuthStore } from '@/store/authStore';
 import type { Track } from '@/lib/media/trackTypes';
 
 /**
- * Fork patch: animated covers, two switches (Settings → Integrations).
- * - Covers: an animated WebP embedded in the song plays wherever the cover is
- *   shown; the cover cache keeps it animated (src-tauri cover_cache/fork_animated.rs).
+ * Fork patch: animated covers, two switches (Settings → Integrations → Fork settings).
+ * - Covers: `<song file>.cover.mp4` from the server (same route as below) plays over
+ *   the cover in Now Playing and the fullscreen player; an animated WebP embedded in
+ *   the song also keeps moving (src-tauri cover_cache/fork_animated.rs).
  * - Fullscreen background: `<song file>.background.mp4`, served by the server at
  *   `/rest/x-clip/<folder>/<file>` behind Navidrome's login. Rust downloads it
  *   once and keeps it on disk (src-tauri/src/fork_clips.rs).
@@ -67,13 +68,15 @@ function serverToken(serverId: string, baseUrl: string, fresh = false): Promise<
  * The clip as a file url ('' when the song has none). Rejects on a failure
  * (offline, server error, login) so the caller does not remember it.
  */
-async function loadClip(serverId: string, songId: string): Promise<string> {
+type ClipKind = 'background' | 'cover';
+
+async function loadClip(serverId: string, songId: string, kind: ClipKind): Promise<string> {
   const server = getServerById(serverId);
   if (!server || !isTauri()) return '';
   const baseUrl = connectBaseUrlForServer(server);
   for (const fresh of [false, true]) {
     const token = await serverToken(serverId, baseUrl, fresh);
-    const res = await commands.forkSongBackgroundClip(baseUrl, token, songId);
+    const res = await commands.forkSongBackgroundClip(baseUrl, token, songId, kind);
     if (res.status === 'ok') return res.data ? convertFileSrc(res.data.replace(/\\/g, '/')) : '';
     if (!res.error.includes('401')) throw new Error(res.error); // only an expired login is worth one retry
   }
@@ -87,12 +90,10 @@ export function forgetBackgroundClip(url: string): void {
   }
 }
 
-/** Background clip url for the playing song ('' while loading, when off, or when there is none). */
-export function useSongBackgroundClip(track: Pick<Track, 'id' | 'serverId'> | null | undefined): string {
-  const enabled = useSongClipsStore(s => s.backdrops);
+function useSongClip(track: Pick<Track, 'id' | 'serverId'> | null | undefined, kind: ClipKind, enabled: boolean): string {
   const serverId = track?.serverId ?? useAuthStore.getState().activeServerId ?? '';
   const songId = track?.id ?? '';
-  const key = `${serverId}|${songId}`;
+  const key = `${kind}|${serverId}|${songId}`;
   const [state, setState] = useState<{ key: string; url: string }>({ key: '', url: '' });
 
   useEffect(() => {
@@ -100,7 +101,7 @@ export function useSongBackgroundClip(track: Pick<Track, 'id' | 'serverId'> | nu
     let alive = true;
     let hit = clips.get(key);
     if (!hit) {
-      const loading = loadClip(serverId, songId).catch(() => {
+      const loading = loadClip(serverId, songId, kind).catch(() => {
         if (clips.get(key) === loading) clips.delete(key); // a failure is tried again next time
         return '';
       });
@@ -110,19 +111,29 @@ export function useSongBackgroundClip(track: Pick<Track, 'id' | 'serverId'> | nu
     }
     void hit.then(url => { if (alive) setState({ key, url }); });
     return () => { alive = false; };
-  }, [enabled, key, serverId, songId]);
+  }, [enabled, key, serverId, songId, kind]);
 
   return enabled && state.key === key ? state.url : '';
 }
 
-/** Bytes of background clips kept on this device. */
+/** Background clip url for the playing song ('' while loading, when off, or when there is none). */
+export function useSongBackgroundClip(track: Pick<Track, 'id' | 'serverId'> | null | undefined): string {
+  return useSongClip(track, 'background', useSongClipsStore(s => s.backdrops));
+}
+
+/** Square cover clip (`<song>.cover.mp4`) for the playing song, played over the normal cover. */
+export function useSongCoverClip(track: Pick<Track, 'id' | 'serverId'> | null | undefined): string {
+  return useSongClip(track, 'cover', useSongClipsStore(s => s.covers));
+}
+
+/** Bytes of cover and background clips kept on this device. */
 export async function backgroundClipsSize(): Promise<number> {
   if (!isTauri()) return 0;
   const res = await commands.forkBackgroundClipsSize();
   return res.status === 'ok' ? res.data : 0;
 }
 
-/** Delete the kept background clips; they download again when next shown. */
+/** Delete the kept cover and background clips; they download again when next shown. */
 export async function clearBackgroundClips(): Promise<void> {
   clips.clear();
   if (isTauri()) await commands.forkClearBackgroundClips();
