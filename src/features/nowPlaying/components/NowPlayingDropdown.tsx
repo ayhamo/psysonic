@@ -1,6 +1,7 @@
 import { CoverArtImage } from '@/cover/CoverArtImage';
 import { usePresenceCoverRef } from '@/cover/useLibraryCoverRef';
 import { coverServerScopeForServerId } from '@/cover/serverScope';
+import { coverEntryToRef, songOwnCoverEntry } from '@/cover/resolveEntry';
 import { getNowPlayingForServers } from '@/lib/api/subsonicScrobble';
 import type { SubsonicNowPlaying } from '@/lib/api/subsonicTypes';
 import React, { useState, useEffect, useRef, useCallback, useLayoutEffect, useMemo } from 'react';
@@ -24,16 +25,25 @@ import { isFeatureActiveForServer } from '@/lib/serverCapabilities/storeView';
  * multi-disc Navidrome album shows the disc the person is actually playing
  * (`dc-<albumId>:<disc>`), and single-disc / other servers show the shared album
  * cover — never the track's own `mf-*` art forced into the album cache slot.
+ * (Fork: a song with its own embedded cover shows that, in its own slot.)
  */
 function PresenceCover({ stream }: { stream: SubsonicNowPlaying }) {
   const serverScope = useMemo(
     () => coverServerScopeForServerId(stream.serverId),
     [stream.serverId],
   );
-  const coverRef = usePresenceCoverRef(
+  const albumCoverRef = usePresenceCoverRef(
     { albumId: stream.albumId, discNumber: stream.discNumber, serverId: stream.serverId },
     serverScope,
   );
+  // Fork patch: the song's own embedded cover (`mf-*`, same cache slot as in the
+  // lists), like Navidrome's own list; the album cover when the song has none.
+  const songCoverArt = stream.coverArt;
+  const songCoverRef = useMemo(() => {
+    const own = songOwnCoverEntry({ coverArt: songCoverArt });
+    return own ? coverEntryToRef(own, serverScope) : null;
+  }, [songCoverArt, serverScope]);
+  const coverRef = songCoverRef ?? albumCoverRef;
   if (!coverRef) {
     return <PlayCircle size={24} style={{ margin: '12px', color: 'var(--text-muted)' }} />;
   }
