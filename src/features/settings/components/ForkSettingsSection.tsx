@@ -8,7 +8,7 @@ import { ForkOfflineSize } from '@/features/settings/components/ForkOfflineSize'
 
 /** Fork changes that have no switch; listed so it is clear what differs from upstream. */
 const ALWAYS_ON = [
-  'Every song shows its own embedded cover (player bar, Now Playing, queue, track lists, fullscreen), not the album cover.',
+  'Every song shows its own embedded cover (player bar, Now Playing, queue, track lists, search, Who is listening, fullscreen), not the album cover.',
   'Classic crossfade also fades when you press Next or Previous.',
   'Synced lyrics stay in time after a crossfade.',
   'Big albums open faster (rows outside the view are not drawn).',

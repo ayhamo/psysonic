@@ -50,7 +50,7 @@ function applySyncRef<T extends CoverArtRef | null | undefined>(
  * library index key (queue refs carry the latter), resolving one to the other so
  * per-disc gating works from any cover surface.
  */
-function useServerIsNavidrome(serverId: string | null | undefined): boolean {
+export function useServerIsNavidrome(serverId: string | null | undefined): boolean {
   return useAuthStore(s => {
     if (!serverId) return false;
     let identity = s.subsonicServerIdentityByServer[serverId];

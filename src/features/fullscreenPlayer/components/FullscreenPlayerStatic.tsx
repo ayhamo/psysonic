@@ -120,7 +120,8 @@ export default function FullscreenPlayerStatic({ onClose }: Props) {
   // background stays empty (no album/artist flash), then falls back per the list;
   // with the scraper off the fanart source reports a non-pending miss, so the
   // chain steps straight to the Navidrome artist image.
-  const artistBgUrl = useFsArtistBackdrop(currentTrack);
+  // The song cover below covers the star placeholder too, so the same picture never shows at two sizes.
+  const artistBgUrl = useFsArtistBackdrop(currentTrack, { placeholderCover: false });
   // Fork patch: the song's own cover fills in while fanart is still looking up
   // (MusicBrainz is slow) and when the artist has no backdrop at all.
   const backdropOn = useThemeStore(s => s.backdrops.fullscreenPlayer.enabled);

@@ -17,7 +17,12 @@ import type { Track } from '@/lib/media/trackTypes';
  * Single source of truth for all three fullscreen player styles — no player
  * re-derives the backdrop; they all call this.
  */
-export function useFsArtistBackdrop(currentTrack: Track | null): string {
+export function useFsArtistBackdrop(
+  currentTrack: Track | null,
+  // Fork patch: false = no song cover for the star placeholder (the caller has its own fallback).
+  opts: { placeholderCover?: boolean } = {},
+): string {
+  const placeholderCover = opts.placeholderCover ?? true;
   const cfg = useThemeStore(s => s.backdrops.fullscreenPlayer);
   const ownFanart = useArtistFanart(currentTrack?.artistId, {
     artistName: currentTrack?.artist,
@@ -37,9 +42,9 @@ export function useFsArtistBackdrop(currentTrack: Track | null): string {
   const placeholder = useIsArtistPlaceholder(artistImgUrl);
   // Only fetched once the placeholder is confirmed: a real artist image never needs it.
   const songCoverRef = usePlaybackTrackCoverRef(currentTrack ?? undefined);
-  const songCover = usePlaybackCoverArt(placeholder === true ? songCoverRef : undefined, 2000, { fullRes: true });
+  const songCover = usePlaybackCoverArt(placeholder === true && placeholderCover ? songCoverRef : undefined, 2000, { fullRes: true });
   const songCoverUrl = useCachedUrl(songCover.src, songCover.cacheKey, true);
-  const navidrome = placeholder === false ? artistImgUrl : placeholder ? songCoverUrl : '';
+  const navidrome = placeholder === false ? artistImgUrl : placeholder && placeholderCover ? songCoverUrl : '';
 
   return cfg.enabled
     ? backdropFromConfig(cfg.sources, { fanart, navidrome }).url

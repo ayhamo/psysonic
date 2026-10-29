@@ -56,6 +56,8 @@ export function ClipVideo({ src, className = '' }: { src: string; className?: st
       playsInline
       aria-hidden="true"
       onPlaying={() => setState({ src, playing: true })}
+      // shown once its first frame is ready, so switching it on while paused shows the still frame
+      onLoadedData={() => setState({ src, playing: true })}
       onError={() => {
         setState({ src, playing: false });
         forgetBackgroundClip(src); // e.g. the file was removed by the size limit: ask again next time

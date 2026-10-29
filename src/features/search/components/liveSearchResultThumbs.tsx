@@ -6,6 +6,9 @@ import { ArtistCoverArtImage } from '@/cover/ArtistCoverArtImage';
 import { CoverArtImage } from '@/cover/CoverArtImage';
 import { COVER_DENSE_SEARCH_CSS_PX } from '@/cover/layoutSizes';
 import { albumCoverRef } from '@/cover/ref';
+import { coverEntryToRef, songOwnCoverEntry } from '@/cover/resolveEntry';
+import { useServerIsNavidrome } from '@/cover/useLibraryCoverRef';
+import { useAuthStore } from '@/store/authStore';
 import { FETCH_QUEUE_BIAS_SEARCH_ARTIST_OVER_ALBUM } from '@/ui/CachedImage';
 import { coverServerScopeForOwnerServerId } from '@/cover/serverScope';
 
@@ -44,16 +47,19 @@ export function LiveSearchSongThumb({ song }: { song: Pick<SubsonicSong, 'id' | 
   // so fetch the album cover from the albumId. Falls back to a music glyph when
   // there is no album to key on.
   const albumId = song.albumId?.trim();
-  const coverRef = React.useMemo(
-    () => (albumId
-      ? albumCoverRef(
-          albumId,
-          `al-${albumId}_0`,
-          song.serverId ? coverServerScopeForOwnerServerId(song.serverId) : undefined,
-        )
-      : undefined),
-    [albumId, song.serverId],
-  );
+  const songCoverArt = song.coverArt;
+  const songId = song.id;
+  // Fork patch: the song's own embedded cover. Results from the local index carry no
+  // `mf-*` id; on Navidrome `mf-<songId>` is safe (it serves the album art when the
+  // file has no picture of its own), as in usePlaybackTrackCoverRef.
+  const isNavidrome = useServerIsNavidrome(song.serverId ?? useAuthStore.getState().activeServerId);
+  const coverRef = React.useMemo(() => {
+    const scope = song.serverId ? coverServerScopeForOwnerServerId(song.serverId) : undefined;
+    const ownId = songCoverArt?.startsWith('mf-') ? songCoverArt : isNavidrome && songId ? `mf-${songId}` : '';
+    const own = songOwnCoverEntry({ coverArt: ownId });
+    if (own) return coverEntryToRef(own, scope);
+    return albumId ? albumCoverRef(albumId, `al-${albumId}_0`, scope) : undefined;
+  }, [albumId, songCoverArt, songId, isNavidrome, song.serverId]);
   if (!coverRef) return <div className="search-result-icon"><Music size={14} /></div>;
   return (
     <CoverArtImage
